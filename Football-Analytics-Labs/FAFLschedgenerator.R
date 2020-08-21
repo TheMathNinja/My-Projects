@@ -148,3 +148,5 @@ write.csv(GMall, "C:/Users/filim/Documents/R/LeagueFeatures/FAFLschedgenerator.c
 
 #Now we seek to predict reg_all_play_yearN from variables in year N-1
 GMstats14$reg_adj_allplay_wins14[match(GMstats15$owner_name,GMstats14$owner_name)]
+GMstats14[["reg_adj_allplay_wins14"]][match(GMstats15$owner_name,GMstats14$owner_name)]
+with(GMstats14,reg_adj_allplay_wins14[match(GMstats15$owner_name,GMstats14$owner_name)])
