@@ -114,7 +114,7 @@ for(i in 15:19){
       get(paste0("GMnamekey",i)), 
       by = "franchise_id")%>%
       mutate(returner = if_else(owner_name %in% get(paste0("GMstats",i-1))$owner_name, 1, 0))%>%
-      #mutate(prev_regAPW = get(paste0("GMstats",i-1))$get(paste0("reg_adj_allplay_wins",i-1))[match(owner_name, get(paste0("GMstats",i-1))$owner_name)])%>%
+      mutate(prev_regAPW = with(get(paste0("GMstats",i-1)),get(paste0("reg_adj_allplay_wins",i-1))[match(owner_name, get(paste0("GMstats",i-1))$owner_name)]))%>%
       select(owner_name, returner, conference, franchise_name, prev_regAPW, allplay_wins, allplay_losses, allplay_ties, allplay_sum, allplay_winpct, points_for, pf_ratio, potential_points, pp_ratio, reg_adj_allplay_wins, reg_all_play_pct)
   )
   #rename columns to add year suffix
