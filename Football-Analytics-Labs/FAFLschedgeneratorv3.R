@@ -118,74 +118,86 @@ for(i in 14:20){
   
 }
 
-#append "prev_" to all column names except owner
-#define regAPW, returner, returners, returningAPW and append at end
 
-#This basically looks at which owners are in the next year's league, and gets their APW from the next year
-GMstats14 <- GMstats14 %>% 
-  mutate(
-    next_yr = ifelse(owner_name %in% GMstats15$owner_name, 1, 0)
-  ) %>% 
-  left_join(
-    GMstats15 %>% select(owner_name, reg_adj_allplay_wins),
-    by = 'owner_name'
-  )
+#The following is ugly but it works until I can make it for loop
 
-#This just renames the last column
-names(GMstats14)[length(names(GMstats14))]<-"next_regAPW"
+#Create predictor df by grabbing initial league data (owner names and returner status)
+#Tack on detailed individual owner data from last year for returning owners
+APWpred15 <- GMstats15 %>%
+  select(owner_name, returner, returners, reg_adj_allplay_wins) %>%
+  left_join(GMstats14 %>% 
+              select(-(returner:returners)) %>%
+              rename_all(function(x) paste0("prev_", x))%>%
+              rename(owner_name = prev_owner_name),
+            by = 'owner_name') %>%
+  mutate(returning_regAPW = sum(prev_reg_adj_allplay_wins, na.rm = TRUE))%>%
+  mutate(returner_regAPW = sum(reg_adj_allplay_wins * returner))
+  
 
-#Because I am lazy and this works I am just going to repeat this multiple times, instead of figuring out how to loop over this
+APWpred16 <- GMstats16 %>%
+  select(owner_name, returner, returners, reg_adj_allplay_wins) %>%
+  left_join(GMstats17 %>% 
+              select(-(returner:returners)) %>%
+              rename_all(function(x) paste0("prev_", x))%>%
+              rename(owner_name = prev_owner_name),
+            by = 'owner_name') %>%
+  mutate(returning_regAPW = sum(prev_reg_adj_allplay_wins, na.rm = TRUE))%>%
+  mutate(returner_regAPW = sum(reg_adj_allplay_wins * returner))
 
-GMstats15 <- GMstats15 %>% 
-  mutate(
-    next_yr = ifelse(owner_name %in% GMstats16$owner_name, 1, 0)
-  ) %>% 
-  left_join(
-    GMstats16 %>% select(owner_name, reg_adj_allplay_wins),
-    by = 'owner_name'
-  )
-names(GMstats15)[length(names(GMstats15))]<-"next_regAPW"
+APWpred17 <- GMstats17 %>%
+  select(owner_name, returner, returners, reg_adj_allplay_wins) %>%
+  left_join(GMstats16 %>% 
+              select(-(returner:returners)) %>%
+              rename_all(function(x) paste0("prev_", x))%>%
+              rename(owner_name = prev_owner_name),
+            by = 'owner_name') %>%
+  mutate(returning_regAPW = sum(prev_reg_adj_allplay_wins, na.rm = TRUE))%>%
+  mutate(returner_regAPW = sum(reg_adj_allplay_wins * returner))
 
+APWpred18 <- GMstats18 %>%
+  select(owner_name, returner, returners, reg_adj_allplay_wins) %>%
+  left_join(GMstats17 %>% 
+              select(-(returner:returners)) %>%
+              rename_all(function(x) paste0("prev_", x))%>%
+              rename(owner_name = prev_owner_name),
+            by = 'owner_name') %>%
+  mutate(returning_regAPW = sum(prev_reg_adj_allplay_wins, na.rm = TRUE))%>%
+  mutate(returner_regAPW = sum(reg_adj_allplay_wins * returner))
 
-GMstats16 <- GMstats16 %>% 
-  mutate(
-    next_yr = ifelse(owner_name %in% GMstats17$owner_name, 1, 0)
-  ) %>% 
-  left_join(
-    GMstats17 %>% select(owner_name, reg_adj_allplay_wins),
-    by = 'owner_name'
-  )
-names(GMstats16)[length(names(GMstats16))]<-"next_regAPW"
+APWpred19 <- GMstats19 %>%
+  select(owner_name, returner, returners, reg_adj_allplay_wins) %>%
+  left_join(GMstats18 %>% 
+              select(-(returner:returners)) %>%
+              rename_all(function(x) paste0("prev_", x))%>%
+              rename(owner_name = prev_owner_name),
+            by = 'owner_name') %>%
+  mutate(returning_regAPW = sum(prev_reg_adj_allplay_wins, na.rm = TRUE))%>%
+  mutate(returner_regAPW = sum(reg_adj_allplay_wins * returner))
 
-GMstats17 <- GMstats17 %>% 
-  mutate(
-    next_yr = ifelse(owner_name %in% GMstats18$owner_name, 1, 0)
-  ) %>% 
-  left_join(
-    GMstats18 %>% select(owner_name, reg_adj_allplay_wins),
-    by = 'owner_name'
-  )
-names(GMstats17)[length(names(GMstats17))]<-"next_regAPW"
+APWpred20 <- GMstats20 %>%
+  select(owner_name, returner, returners, reg_adj_allplay_wins) %>%
+  left_join(GMstats19 %>% 
+              select(-(returner:returners)) %>%
+              rename_all(function(x) paste0("prev_", x))%>%
+              rename(owner_name = prev_owner_name),
+            by = 'owner_name') %>%
+  mutate(returning_regAPW = sum(prev_reg_adj_allplay_wins, na.rm = TRUE))%>%
+  mutate(returner_regAPW = sum(reg_adj_allplay_wins * returner))
 
-GMstats18 <- GMstats18 %>% 
-  mutate(
-    next_yr = ifelse(owner_name %in% GMstats19$owner_name, 1, 0)
-  ) %>% 
-  left_join(
-    GMstats19 %>% select(owner_name, reg_adj_allplay_wins),
-    by = 'owner_name'
-  )
-names(GMstats18)[length(names(GMstats18))]<-"next_regAPW"
+APWpred_all <- bind_rows(APWpred15, APWpred16, APWpred17, APWpred18, APWpred19)
+view(APWpred_all)
 
+write.csv(APWpred_all, "C:/Users/filim/Documents/R/LeagueFeatures/FAFLschedgeneratorv3.csv", row.names = FALSE)
+
+returnAPW_model <- lm(returner_regAPW ~ returning_regAPW, data=APWpred_all)
+summary(returnAPW_model)
+
+plot(APWpred_all$returning_regAPW, APWpred_all$returner_regAPW)
+
+#code options for 2020
 franchises20 <- ff_franchises(FAFL20)
 GMstats19 <- GMstats19 %>% 
   mutate(
     next_yr = ifelse(owner_name %in% franchises20$owner_name, 1, 0)
   )%>%
   mutate(filler_nextregAPW = NA)
-names(GMstats19)[length(names(GMstats19))]<-"next_regAPW"
-
-GMall <- bind_rows(GMstats14, GMstats15, GMstats16, GMstats17, GMstats18, GMstats19)
-view(GMall)
-
-write.csv(GMall, "C:/Users/filim/Documents/R/LeagueFeatures/FAFLschedgeneratorv3.csv", row.names = FALSE)
