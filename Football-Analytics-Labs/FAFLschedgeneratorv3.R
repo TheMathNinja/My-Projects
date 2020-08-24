@@ -101,19 +101,47 @@ for(i in 14:20){
       get(paste0("GMstats",i)) %>% 
         mutate(
           returner = ifelse(owner_name %in% get(paste0("GMstats",i-1))$owner_name,1,0),
-          returners = sum(returner)
-        )
+          returners = sum(returner),
+          rookie = ifelse(owner_name %in% get(paste0("GMstats",i-1))$owner_name,0,1),
+          rookies = sum(rookie),
+          NFC_returner = ifelse(returner == 1 & conference == "00", 1, 0),
+          NFC_returners = sum(NFC_returner),
+          NFC_rookie = ifelse(returner == 0 & conference == "00", 1, 0),
+          NFC_rookies = sum(NFC_rookie),
+          AFC_returner = ifelse(returner == 1 & conference == "01", 1, 0),
+          AFC_returners = sum(AFC_returner),
+          AFC_rookie = ifelse(returner == 0 & conference == "01", 1, 0),
+          AFC_rookies = sum(AFC_rookie),
+          conf_returners = ifelse(conference == "00", NFC_returners, AFC_returners),
+          conf_rookies = ifelse(conference == "00", NFC_rookies, AFC_rookies),
+          nonconf_returners = ifelse(conference == "00", AFC_returners, NFC_returners),
+          nonconf_rookies = ifelse(conference == "00", AFC_rookies, NFC_rookies),
+               )
     )
   }
   
-  #If it is 2014 (the first year available) we'll just set returner and returners to NA
+  #For 2014 (inaugural year), we set returner-related variables to NA
   else{
     assign(
       paste0("GMstats",i),
       get(paste0("GMstats",i)) %>% 
         mutate(
           returner = NA,
-          returners = NA
+          returners = NA,
+          rookie = NA,
+          rookies = NA,
+          NFC_returner = NA,
+          NFC_returners = NA,
+          NFC_rookie = NA,
+          NFC_rookies = NA,
+          AFC_returner = NA,
+          AFC_returners = NA,
+          AFC_rookie = NA,
+          AFC_rookies = NA,
+          conf_returners = NA,
+          conf_rookies = NA,
+          nonconf_returners = NA,
+          nonconf_rookies = NA
         )
     )
   }
@@ -121,21 +149,94 @@ for(i in 14:20){
 }
 
 #Create predictor df by grabbing initial league data (owner names and returner status)
-#Tack on detailed individual owner data from previous year for returning owners
 for(i in 15:20){
 
   assign(paste0("APWpred",i),
          get(paste0("GMstats",i)) %>%
-           select(owner_name, returner, returners, reg_adj_allplay_wins) %>%
+           select(owner_name, 
+                  year, 
+                  conference, 
+                  franchise_name, 
+                  returner, 
+                  rookie, 
+                  returners, 
+                  rookies, 
+                  NFC_returner, 
+                  NFC_rookie, 
+                  AFC_returner, 
+                  AFC_rookie, 
+                  NFC_returners, 
+                  NFC_rookies, 
+                  AFC_returners, 
+                  AFC_rookies, 
+                  conf_returners,
+                  conf_rookies,
+                  nonconf_returners,
+                  nonconf_rookies,
+                  reg_adj_allplay_wins) %>%
+           #Tack on detailed individual owner data from previous year for returning owners
            left_join(get(paste0("GMstats",i-1)) %>% 
-                       select(-(returner:returners)) %>%
+                       select(-(returner:nonconf_rookies)) %>%
                        rename_all(function(x) paste0("prev_", x))%>%
                        rename(owner_name = prev_owner_name),
                      by = 'owner_name') %>%
+           #Create aggregate variables for league conditions (how many wins returning in league)
            mutate(returning_regAPW = sum(prev_reg_adj_allplay_wins, na.rm = TRUE))%>%
-           mutate(returning_regAPW_per_team = returning_regAPW/returners)%>%
+           mutate(returning_regAPW_per_team = returning_regAPW / returners)%>%
            mutate(returner_regAPW = sum(reg_adj_allplay_wins * returner))%>%
-           mutate(returner_regAPW_per_team = sum(reg_adj_allplay_wins * returner)/returners)
+           mutate(returner_regAPW_per_team = returner_regAPW / returners)%>%
+           mutate(rookie_regAPW = sum(reg_adj_allplay_wins * rookie))%>%
+           mutate(rookie_regAPW_per_team = rookie_regAPW / rookies)%>%
+           #Make same variables at conference level
+           mutate(returning_conf_regAPW = 
+              ifelse(
+                    conference == "00",
+                    sum(prev_reg_adj_allplay_wins * NFC_returner, na.rm = TRUE),
+                    sum(prev_reg_adj_allplay_wins * AFC_returner, na.rm = TRUE)
+                    )
+                 )%>%
+           mutate(returning_conf_regAPW_per_team = returning_conf_regAPW / conf_returners)%>%
+           mutate(returner_conf_regAPW = 
+                    ifelse(
+                      conference == "00",
+                      sum(reg_adj_allplay_wins * NFC_returner),
+                      sum(reg_adj_allplay_wins * AFC_returner)
+                    )
+                    )%>%
+           mutate(returner_conf_regAPW_per_team = returner_conf_regAPW / conf_returners)%>%
+           mutate(rookie_conf_regAPW = 
+                    ifelse(
+                      conference == "00",
+                      sum(reg_adj_allplay_wins * NFC_rookie),
+                      sum(reg_adj_allplay_wins * AFC_rookie)
+                    )
+           )%>%
+           mutate(rookie_conf_regAPW_per_team = rookie_conf_regAPW / conf_rookies)%>%
+         #Make same variables for non-conference
+         mutate(returning_nonconf_regAPW = 
+                  ifelse(
+                    conference == "00",
+                    sum(prev_reg_adj_allplay_wins * AFC_returner, na.rm = TRUE),
+                    sum(prev_reg_adj_allplay_wins * NFC_returner, na.rm = TRUE)
+                  )
+         )%>%
+           mutate(returning_nonconf_regAPW_per_team = returning_nonconf_regAPW / nonconf_returners)%>%
+           mutate(returner_nonconf_regAPW = 
+                    ifelse(
+                      conference == "00",
+                      sum(reg_adj_allplay_wins * AFC_returner),
+                      sum(reg_adj_allplay_wins * NFC_returner)
+                    )
+           )%>%
+           mutate(returner_nonconf_regAPW_per_team = returner_nonconf_regAPW / nonconf_returners)%>%
+           mutate(rookie_nonconf_regAPW = 
+                    ifelse(
+                      conference == "00",
+                      sum(reg_adj_allplay_wins * AFC_rookie),
+                      sum(reg_adj_allplay_wins * NFC_rookie)
+                    )
+           )%>%
+           mutate(rookie_nonconf_regAPW_per_team = rookie_nonconf_regAPW / nonconf_rookies)
          )
 }
 
@@ -144,12 +245,47 @@ view(APWpred_all)
 
 write.csv(APWpred_all, "C:/Users/filim/Documents/R/LeagueFeatures/FAFLschedgeneratorv3.csv", row.names = FALSE)
 
-returnAPW_model <- lm(returner_regAPW ~ returning_regAPW + returners + returning_regAPW*returners, data=APWpred_all)
-summary(returnAPW_model)
-returnAPW_model_perteam <- lm(returner_regAPW_per_team ~ returning_regAPW_per_team + returners + returning_regAPW_per_team*returners, data=APWpred_all)
-summary(returnAPW_model_perteam)
+rookiepred <- APWpred_all %>%
+  filter(returner == 0)
 
-plot(APWpred_all$returning_regAPW_per_team, APWpred_all$returner_regAPW_per_team)
+vetpred <- APWpred_all %>%
+  filter(returner == 1)
+
+#Build rookie APW predictor; consider trying prev 16/17-week AllPlay, not just reg_allplay
+rookie_APW_model <- lm(rookie_conf_regAPW ~ conf_rookies + nonconf_rookies + returning_conf_regAPW + returning_nonconf_regAPW, data=rookiepred)
+summary(rookie_APW_model)
+rookie_APW_model_perteam <- lm(rookie_conf_regAPW_per_team ~ returning_conf_regAPW_per_team*conf_rookies + returning_nonconf_regAPW_per_team*nonconf_rookies, data=rookiepred)
+summary(rookie_APW_model_perteam)
+#Below is our final rookie model
+rookie_APW_model_perteam_simple <- lm(rookie_conf_regAPW_per_team ~ returning_conf_regAPW_per_team + returning_nonconf_regAPW_per_team + conf_rookies, data=rookiepred)
+summary(rookie_APW_model_perteam_simple)
+
+plot(APWpred_all$rookies, APWpred_all$rookie_regAPW_per_team)
+plot(APWpred_all$conf_rookies, APWpred_all$rookie_conf_regAPW_per_team)
+
+#Build Returner APW predictor
+returner_APW_model_full <- lm(reg_adj_allplay_wins ~ 
+                           prev_allplay_winpct + 
+                           prev_pf_ratio_mean + 
+                           prev_pf_ratio_median + 
+                           prev_pp_ratio_mean + 
+                           prev_pp_ratio_median + 
+                           prev_reg_all_play_pct + 
+                           conf_returners + 
+                           returning_conf_regAPW_per_team + 
+                           returning_nonconf_regAPW_per_team, 
+                         data=vetpred)
+
+summary(returner_APW_model_full)
+
+#Trim model to useful variables. This is our final returner model
+returner_APW_model_trim <- lm(reg_adj_allplay_wins ~ 
+                                prev_allplay_winpct + 
+                                prev_pp_ratio_median + 
+                                returning_nonconf_regAPW_per_team, 
+                              data=vetpred)
+
+summary(returner_APW_model_trim)
 
 #code check for 2020
 franchises20 <- ff_franchises(FAFL20)
