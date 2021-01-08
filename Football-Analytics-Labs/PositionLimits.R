@@ -1,27 +1,29 @@
 library(tidyverse)
 
 #work with PFF snap counts
-pff_snapcounts_raw <- readRDS("C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_snapcount_main_data2019.rds")
+pff_snapcounts_raw_2019 <- readRDS(url("https://github.com/christianlohr9/FAFL/blob/main/data/pff_main_data2019.rds?raw=true"))
+pff_snapcounts_raw_2020 <- readRDS("C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_main_data_fafl2020.rds")
 
-write.csv(pff_snapcounts_raw, "C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_snapcounts_raw.csv", row.names = FALSE)
+write.csv(pff_snapcounts_raw_2020, "C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_snapcounts_raw_2020.csv", row.names = FALSE)
 
-pff_snapcounts_pretty <- pff_snapcounts_raw %>%
-  select(id,
-         #gsis_id,
+pff_snapcounts_pretty_2020 <- pff_snapcounts_raw_2020 %>%
+  select(nflfastR.pff_id,
+         nflfastR.gsis_id,
          dob,
          jersey_number,
-         player_franchise_id,
+         player_franchise_name,
          first_name,
          last_name,
          #draft_season,
+         nflfastR.position,
+         nflfastR.depth_chart_position,
          position_player,
          position_game,
-         #team,
          season,
          week,
          game_id,
-         home_franchise_id,
-         away_franchise_id,
+         home_franchise_name,
+         away_franchise_name,
          ball_side,
          offense,
          defense,
@@ -71,10 +73,10 @@ pff_snapcounts_pretty <- pff_snapcounts_raw %>%
          ) %>%
   #Classify which on-field unit (home O vs. away D or away O vs. home D) player belongs to
   mutate(unit = case_when(
-                          (player_franchise_id == home_franchise_id & OffPlayer == 1 |
-                          player_franchise_id == away_franchise_id & DefPlayer == 1) ~ "home_off",
-                          (player_franchise_id == home_franchise_id & DefPlayer == 1 | 
-                          player_franchise_id == away_franchise_id & OffPlayer == 1) ~ "home_def",
+                          (player_franchise_name == home_franchise_name & OffPlayer == 1 |
+                          player_franchise_name == away_franchise_name & DefPlayer == 1) ~ "home_off",
+                          (player_franchise_name == home_franchise_name & DefPlayer == 1 | 
+                          player_franchise_name == away_franchise_name & OffPlayer == 1) ~ "home_def",
                           STPlayer == 1 ~ "special"
                           )
          )
@@ -95,7 +97,7 @@ pff_fantasy_snapcounts <- pff_snapcounts_pretty %>%
   group_by(game_id, unit) %>%
   mutate(unit_max_snaps = max(snaps)) %>%
   ungroup() %>%
-  group_by(season, player_franchise_id, week, OffPlayer) %>%
+  group_by(season, player_franchise_name, week, OffPlayer) %>%
   mutate(side_max_snaps = max(snaps)) %>%
   mutate(max_snaps = max(unit_max_snaps, side_max_snaps)) %>%
   mutate(snap_pct = snaps/max_snaps) %>%
@@ -146,22 +148,23 @@ pff_fantasy_snapcounts <- pff_snapcounts_pretty %>%
     (OffPlayer == 0 | (OffPlayer == 1 & snap_rank > 8)) ~ 0
   )) %>%
   arrange(desc(snaps), .by_group = T) %>%
-  select(id,
-         #gsis_id,
+  select(nflfastR.pff_id,
+         nflfastR.gsis_id,
          dob,
          jersey_number,
-         player_franchise_id,
+         player_franchise_name,
          first_name,
          last_name,
          #draft_season,
+         nflfastR.position,
+         nflfastR.depth_chart_position,
          position_player,
          position_game,
-         #team,
          season,
          week,
          game_id,
-         home_franchise_id,
-         away_franchise_id,
+         home_franchise_name,
+         away_franchise_name,
          ball_side,
          snaps,
          side_max_snaps,
@@ -213,7 +216,17 @@ view(side_discrep)
 
 write.csv(pff_fantasy_snapcounts, "C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_fantasy_snapcounts.csv", row.names = FALSE)
 
-#Show position_playeral usage broken out by week and team
+#Show snap_pct by snap rank to compare total starters on off. and def.
+snap_rank_breakdown <- pff_fantasy_snapcounts %>%
+  group_by(season,
+           OffPlayer,
+           snap_order) %>%
+  summarise(mean_snap_pct = mean(snap_pct),
+            n = n())
+
+view(snap_rank_breakdown)
+
+#Show positional usage broken out by week and team
 #Count the number of Top 11/12/13 per position per game
 pos_usage_summary <- pff_fantasy_snapcounts %>% 
   group_by(season,
@@ -264,20 +277,26 @@ league_usage_summary_ranks <- team_usage_summary %>%
   group_by(season,
            OffPlayer,
            mfl_position) %>%
-  summarise(No31D = sort(team_top_12D_per_game, decreasing = TRUE)[31],
+  summarise(No32D = sort(team_top_12D_per_game, decreasing = TRUE)[32],
+            No31D = sort(team_top_12D_per_game, decreasing = TRUE)[31],
             No29D = sort(team_top_12D_per_game, decreasing = TRUE)[29],
             No27D = sort(team_top_12D_per_game, decreasing = TRUE)[27],
+            No17D = sort(team_top_12D_per_game, decreasing = TRUE)[17],
             No16D = sort(team_top_12D_per_game, decreasing = TRUE)[16],
             No6D = sort(team_top_12D_per_game, decreasing = TRUE)[6],
             No4D = sort(team_top_12D_per_game, decreasing = TRUE)[4],
             No2D = sort(team_top_12D_per_game, decreasing = TRUE)[2],
+            No1D = sort(team_top_12D_per_game, decreasing = TRUE)[1],
+            No32O = sort(team_top_7O_per_game, decreasing = TRUE)[32],
             No31O = sort(team_top_7O_per_game, decreasing = TRUE)[31],
             No29O = sort(team_top_7O_per_game, decreasing = TRUE)[29],
             No27O = sort(team_top_7O_per_game, decreasing = TRUE)[27],
+            No17O = sort(team_top_7O_per_game, decreasing = TRUE)[17],
             No16O = sort(team_top_7O_per_game, decreasing = TRUE)[16],
             No6O = sort(team_top_7O_per_game, decreasing = TRUE)[6],
             No4O = sort(team_top_7O_per_game, decreasing = TRUE)[4],
-            No2O = sort(team_top_7O_per_game, decreasing = TRUE)[2])
+            No2O = sort(team_top_7O_per_game, decreasing = TRUE)[2],
+            No1O = sort(team_top_7O_per_game, decreasing = TRUE)[1])
             
 view(league_usage_summary_ranks)
 
@@ -287,19 +306,25 @@ league_usage_summary_ranks_grouped <- team_usage_summary %>%
   group_by(season,
            OffPlayer,
            idp_group) %>%
-  summarise(No31D = sort(team_top_12D_per_game, decreasing = TRUE)[31],
+  summarise(No32D = sort(team_top_12D_per_game, decreasing = TRUE)[32],
+            No31D = sort(team_top_12D_per_game, decreasing = TRUE)[31],
             No29D = sort(team_top_12D_per_game, decreasing = TRUE)[29],
             No27D = sort(team_top_12D_per_game, decreasing = TRUE)[27],
+            No17D = sort(team_top_12D_per_game, decreasing = TRUE)[17],
             No16D = sort(team_top_12D_per_game, decreasing = TRUE)[16],
             No6D = sort(team_top_12D_per_game, decreasing = TRUE)[6],
             No4D = sort(team_top_12D_per_game, decreasing = TRUE)[4],
             No2D = sort(team_top_12D_per_game, decreasing = TRUE)[2],
+            No1D = sort(team_top_12D_per_game, decreasing = TRUE)[1],
+            No32O = sort(team_top_7O_per_game, decreasing = TRUE)[32],
             No31O = sort(team_top_7O_per_game, decreasing = TRUE)[31],
             No29O = sort(team_top_7O_per_game, decreasing = TRUE)[29],
             No27O = sort(team_top_7O_per_game, decreasing = TRUE)[27],
+            No17O = sort(team_top_7O_per_game, decreasing = TRUE)[17],
             No16O = sort(team_top_7O_per_game, decreasing = TRUE)[16],
             No6O = sort(team_top_7O_per_game, decreasing = TRUE)[6],
             No4O = sort(team_top_7O_per_game, decreasing = TRUE)[4],
-            No2O = sort(team_top_7O_per_game, decreasing = TRUE)[2])
+            No2O = sort(team_top_7O_per_game, decreasing = TRUE)[2],
+            No1O = sort(team_top_7O_per_game, decreasing = TRUE)[1])
 
 view(league_usage_summary_ranks)
