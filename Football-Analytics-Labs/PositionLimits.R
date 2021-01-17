@@ -1,12 +1,17 @@
 library(tidyverse)
 
 #work with PFF snap counts
-pff_snapcounts_raw_2019 <- readRDS(url("https://github.com/christianlohr9/FAFL/blob/main/data/pff_main_data2019.rds?raw=true"))
+pff_snapcounts_raw_2019_old <- readRDS(url("https://github.com/christianlohr9/FAFL/blob/main/data/pff_main_data2019.rds?raw=true"))
+pff_snapcounts_raw_2019 <- readRDS("C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_main_data_fafl2019.rds")
 pff_snapcounts_raw_2020 <- readRDS("C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_main_data_fafl2020.rds")
 
+write.csv(pff_snapcounts_raw_2019_old, "C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_snapcounts_raw_2019_old.csv", row.names = FALSE)
+write.csv(pff_snapcounts_raw_2019, "C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_snapcounts_raw_2019.csv", row.names = FALSE)
 write.csv(pff_snapcounts_raw_2020, "C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_snapcounts_raw_2020.csv", row.names = FALSE)
 
-pff_snapcounts_pretty_2020 <- pff_snapcounts_raw_2020 %>%
+pff_snapcounts_raw <- bind_rows(pff_snapcounts_raw_2020,pff_snapcounts_raw_2019)
+
+pff_snapcounts_pretty <- pff_snapcounts_raw %>%
   select(nflfastR.pff_id,
          nflfastR.gsis_id,
          dob,
@@ -89,10 +94,8 @@ pff_snapcounts_pretty %>% group_by(poscheck, unit) %>%
 
 write.csv(pff_snapcounts_pretty, "C:/Users/filim/Documents/R/LeagueFeatures/PositionLimits/pff_snapcounts_pretty.csv", row.names = FALSE)
 
-#OffHomeSnaps and #DefHomeSnaps variables
-#top_n function will help here for top 11/12/13 players by snap count
-#Use various dplyr rank functions to get what we need https://dplyr.tidyverse.org/reference/ranking.html
-
+#Specify dataset for fantasy purposes
+#First discern how many total snaps a unit played for
 pff_fantasy_snapcounts <- pff_snapcounts_pretty %>%
   group_by(game_id, unit) %>%
   mutate(unit_max_snaps = max(snaps)) %>%
@@ -101,22 +104,26 @@ pff_fantasy_snapcounts <- pff_snapcounts_pretty %>%
   mutate(side_max_snaps = max(snaps)) %>%
   mutate(max_snaps = max(unit_max_snaps, side_max_snaps)) %>%
   mutate(snap_pct = snaps/max_snaps) %>%
+  #Define positions according to MFL standards
   mutate(mfl_position = if_else(position_player == "FB" | position_player == "HB", "RB", position_player)) %>%
   mutate(idp_group = case_when((position_player == "DI" | position_player == "ED") ~ "DL",
                                position_player == "LB" ~ "LB",
                                (position_player == "CB" | position_player == "S") ~ "DB")
          ) %>%
+  #Exclude O line and Fullbacks because they are (functionally) un-startable/ineligible for fantasy
   filter(position_player != "C",
          position_player != "G",
          position_player != "T",
+         position_player != "FB",
          STPlayer == 0) %>%
+  #Create participation ranking of players by snap count
   mutate(snap_order = rank(desc(snaps), ties.method = "first")) %>%
   mutate(snap_rank = rank(desc(snaps), ties.method = "min")) %>%
   ungroup() %>%
-  group_by(season, player_franchise_id, week, OffPlayer, snap_rank) %>%
+  group_by(season, player_franchise_name, week, OffPlayer, snap_rank) %>%
   mutate(max_order_in_rank = max(snap_order)) %>%
   ungroup() %>%
-  group_by(season, player_franchise_id, week, OffPlayer) %>%
+  group_by(season, player_franchise_name, week, OffPlayer) %>%
   mutate(top_11_D = case_when(
     (DefPlayer == 1 & snap_rank < 11 & max_order_in_rank < 11) ~ 1,
     (DefPlayer == 1 & snap_rank <= 11 & max_order_in_rank >= 11) ~ (11 - snap_rank + 1)/(max_order_in_rank - snap_rank + 1),
@@ -160,6 +167,7 @@ pff_fantasy_snapcounts <- pff_snapcounts_pretty %>%
          nflfastR.depth_chart_position,
          position_player,
          position_game,
+         mfl_position,
          season,
          week,
          game_id,
@@ -231,7 +239,7 @@ view(snap_rank_breakdown)
 pos_usage_summary <- pff_fantasy_snapcounts %>% 
   group_by(season,
            week,
-           player_franchise_id,
+           player_franchise_name,
            OffPlayer,
            mfl_position) %>%
   summarise(pos_top11D = sum(top_11_D),
@@ -248,7 +256,7 @@ view(pos_usage_summary)
 #Use janitor tabyl function to create DL, Front7, and DB sum rows?
 team_usage_summary <- pos_usage_summary %>%
   group_by(season,
-           player_franchise_id,
+           player_franchise_name,
            OffPlayer,
            mfl_position) %>%
   summarise(team_top_11D_per_game = sum(pos_top11D)/15,
