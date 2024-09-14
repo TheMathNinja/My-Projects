@@ -189,9 +189,10 @@ load_mfl_espn_id_map <- function() {
   
   # Bind the updated NA rows back to the original dataframe
   mfl_espn_join_4 <- mfl_espn_join_3 %>%
-    filter(!is.na(espn_id)) %>%  # Keep rows where espn_id.x is already filled
-    bind_rows(na_rows_joined_4)    # Add the resolved NA rows
-  
+    filter(!is.na(espn_id)) %>%                # Keep rows where espn_id.x is already filled
+    bind_rows(na_rows_joined_4) %>%            # Add the resolved NA rows
+    mutate(espn_id = as.integer(espn_id)) %>%  # Restore to int type from start
+    arrange(mfl_id)                            # Restore row order
   
   return(mfl_espn_join_4)
 }
